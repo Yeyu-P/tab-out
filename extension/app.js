@@ -32,6 +32,7 @@ const selectedTabIds = new Set();
 let commandItems = [];
 let commandActiveIndex = 0;
 let openTabsCollapsed = false;
+let dashboardPrefs = TabOutCore.normalizeDashboardPrefs();
 
 /**
  * fetchOpenTabs()
@@ -780,6 +781,55 @@ function setSelectionMode(enabled) {
 
 function getSelectedOpenTabs() {
   return openTabs.filter(tab => selectedTabIds.has(tab.id));
+}
+
+const THEME_OPTIONS = [
+  { value: 'warm-paper', label: 'Warm Paper' },
+  { value: 'deep-focus', label: 'Deep Focus' },
+  { value: 'clean-light', label: 'Clean Light' },
+  { value: 'soft-color', label: 'Soft Color' },
+];
+
+async function loadDashboardPrefs() {
+  try {
+    const { dashboardPrefs: stored = {} } = await chrome.storage.local.get('dashboardPrefs');
+    dashboardPrefs = TabOutCore.normalizeDashboardPrefs(stored);
+  } catch {
+    dashboardPrefs = TabOutCore.normalizeDashboardPrefs();
+  }
+  applyDashboardPrefs();
+}
+
+async function saveDashboardPrefs(nextPrefs) {
+  dashboardPrefs = TabOutCore.normalizeDashboardPrefs({ ...dashboardPrefs, ...nextPrefs });
+  applyDashboardPrefs();
+  await chrome.storage.local.set({ dashboardPrefs });
+}
+
+function applyDashboardPrefs() {
+  document.body.dataset.theme = dashboardPrefs.theme;
+  document.body.dataset.density = dashboardPrefs.density;
+
+  document.querySelectorAll('.theme-swatch').forEach(btn => {
+    const active = btn.dataset.themeValue === dashboardPrefs.theme;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active);
+  });
+
+  document.querySelectorAll('.density-btn').forEach(btn => {
+    const active = btn.dataset.density === dashboardPrefs.density;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active);
+  });
+}
+
+function renderThemePicker() {
+  const picker = document.getElementById('themePicker');
+  if (!picker) return;
+  picker.innerHTML = THEME_OPTIONS.map(theme => `
+    <button class="theme-swatch" data-theme-value="${theme.value}" title="${theme.label}" aria-label="${theme.label}" aria-pressed="false"></button>
+  `).join('');
+  applyDashboardPrefs();
 }
 
 
@@ -1727,6 +1777,39 @@ document.addEventListener('click', async (e) => {
   }
 });
 
+document.addEventListener('click', async (e) => {
+  const themeBtn = e.target.closest('.theme-swatch');
+  if (!themeBtn) return;
+  await saveDashboardPrefs({ theme: themeBtn.dataset.themeValue });
+});
+
+document.addEventListener('click', (e) => {
+  const settingsBtn = e.target.closest('#dashboardSettingsBtn');
+  const settingsPanel = document.getElementById('dashboardSettingsPanel');
+  const btn = document.getElementById('dashboardSettingsBtn');
+  if (!settingsPanel || !btn) return;
+
+  if (settingsBtn) {
+    const open = settingsPanel.style.display !== 'none';
+    settingsPanel.style.display = open ? 'none' : 'flex';
+    btn.classList.toggle('open', !open);
+    btn.setAttribute('aria-expanded', String(!open));
+    return;
+  }
+
+  if (!e.target.closest('.dashboard-settings')) {
+    settingsPanel.style.display = 'none';
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+});
+
+document.addEventListener('click', async (e) => {
+  const densityBtn = e.target.closest('.density-btn');
+  if (!densityBtn) return;
+  await saveDashboardPrefs({ density: densityBtn.dataset.density });
+});
+
 // ---- Command palette: Cmd/Ctrl+K or "/" to search tabs, saved items, quick links ----
 document.addEventListener('keydown', async (e) => {
   const active = document.activeElement;
@@ -2097,7 +2180,13 @@ document.addEventListener('error', (e) => {
 /* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
-renderDashboard();
+async function init() {
+  renderThemePicker();
+  await loadDashboardPrefs();
+  await renderDashboard();
+}
+
+init();
 
 /* ----------------------------------------------------------------
    AUTO-REFRESH — re-render when tabs open, close, or finish loading

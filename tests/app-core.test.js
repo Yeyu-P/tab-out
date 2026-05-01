@@ -3,6 +3,7 @@ const {
   buildCommandItems,
   filterCommandItems,
   createUndoSnapshot,
+  normalizeDashboardPrefs,
 } = require('../extension/app-core');
 
 function run(name, fn) {
@@ -60,4 +61,22 @@ run('createUndoSnapshot keeps restorable tab fields only', () => {
     { title: 'GitHub', url: 'https://github.com', pinned: true },
   ]);
   assert.ok(snapshot.createdAt);
+});
+
+run('normalizeDashboardPrefs validates theme and density', () => {
+  assert.deepStrictEqual(normalizeDashboardPrefs({
+    theme: 'deep-focus',
+    density: 'compact',
+  }), {
+    theme: 'deep-focus',
+    density: 'compact',
+  });
+
+  assert.deepStrictEqual(normalizeDashboardPrefs({
+    theme: 'neon',
+    density: 'tiny',
+  }), {
+    theme: 'warm-paper',
+    density: 'comfortable',
+  });
 });

@@ -50,10 +50,23 @@
     };
   }
 
+  const VALID_THEMES = ['warm-paper', 'deep-focus', 'clean-light', 'soft-color'];
+  const VALID_DENSITIES = ['comfortable', 'compact'];
+
+  function normalizeDashboardPrefs(prefs = {}) {
+    const theme = VALID_THEMES.includes(prefs.theme) ? prefs.theme : 'warm-paper';
+    const density = VALID_DENSITIES.includes(prefs.density) ? prefs.density : 'comfortable';
+
+    return { theme, density };
+  }
+
   return {
     buildCommandItems,
     filterCommandItems,
     createUndoSnapshot,
     isRestorableUrl,
+    normalizeDashboardPrefs,
+    VALID_THEMES,
+    VALID_DENSITIES,
   };
 });
